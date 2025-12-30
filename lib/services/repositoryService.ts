@@ -59,17 +59,19 @@ export class RepositoryService {
       },
     })
 
-    // In serverless (Vercel), must await or the function will terminate
-    // Start analysis immediately (await it)
+    console.log(`Created repository ${repository.id}, starting analysis...`)
+
+    // Must await in serverless - function needs to complete before terminating
     try {
       await this.analyzeRepository(repository.id)
+      console.log(`Analysis completed for repository ${repository.id}`)
     } catch (error) {
       console.error(`Failed to analyze repository ${repository.id}:`, error)
       await prisma.repository.update({
         where: { id: repository.id },
         data: { status: 'failed' },
       })
-      throw error
+      throw error // Re-throw to let caller know it failed
     }
 
     return repository

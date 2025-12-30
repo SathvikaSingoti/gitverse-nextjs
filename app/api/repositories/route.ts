@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/middleware'
 import { repositoryService } from '@/lib/services/repositoryService'
 
+// Increase timeout for repository creation and analysis
+export const maxDuration = 300
+export const runtime = 'nodejs'
+
 export async function POST(request: NextRequest) {
   try {
     const user = requireAuth(request)
