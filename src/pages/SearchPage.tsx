@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Grid, List, GitBranch, Clock, Activity } from "lucide-react";
+import { Search, Grid, List, GitBranch, Clock, Activity, Users } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
   Card,
@@ -153,9 +153,15 @@ export default function SearchPage() {
             Loading repositories...
           </div>
         ) : sortedRepositories.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            No repositories found. Try adjusting your search query.
-          </div>
+          <div className="text-center py-12 flex flex-col items-center gap-4">
+  <Users className="h-12 w-12 text-muted-foreground/50" />
+  <div>
+    <h3 className="font-semibold text-lg">No users found</h3>
+    <p className="text-sm text-muted-foreground mt-1">
+      Try adjusting your search query
+    </p>
+  </div>
+</div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {sortedRepositories.map((repo, index) => (
