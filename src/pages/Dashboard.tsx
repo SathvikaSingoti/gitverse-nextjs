@@ -68,7 +68,7 @@ export default function Dashboard() {
       searchRef.current?.focus();
     }
 
-    if (e.key === "Escape") {
+    if (e.key === "Escape" && !isTyping) {
       setRepoUrl("");
       searchRef.current?.blur();
     }
@@ -253,7 +253,7 @@ export default function Dashboard() {
                 {analyzing ? "Analyzing..." : "Analyze Repository"}
               </Button>
               <p className="text-xs text-muted-foreground mt-2">
-              Press "/" to focus search • Esc to clear
+              Press &quot;/&quot; to focus search • Esc to clear
               </p>
             </div>
           </CardContent>
