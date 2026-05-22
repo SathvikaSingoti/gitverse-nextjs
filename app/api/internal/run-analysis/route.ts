@@ -11,82 +11,36 @@ export async function GET(request: Request) {
     // Auth check
     const authHeader = request.headers.get('authorization');
 
-    if (
-      process.env.ANALYSIS_RUNNER_SECRET &&
-      authHeader !== `Bearer ${process.env.ANALYSIS_RUNNER_SECRET}`
-    ) {
-      console.warn('[run-analysis] Unauthorized access attempt');
+  const url = new URL(request.url);
+  const budgetParam = url.searchParams.get('timeBudgetMs');
+  const timeBudgetMs = budgetParam ? parseInt(budgetParam, 10) : 240_000;
 
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const { searchParams } = new URL(request.url);
-    const timeBudgetStr = searchParams.get('timeBudgetMs');
-
-    // Default budget: 45s
-    let timeBudgetMs = 45000;
-
-    if (timeBudgetStr) {
-      const parsed = Number(timeBudgetStr);
-
-      if (!Number.isNaN(parsed) && parsed > 0) {
-        timeBudgetMs = parsed;
-      } else {
-        console.warn(
-          `[run-analysis] Invalid timeBudgetMs received: ${timeBudgetStr}`
-        );
-      }
-    }
-
-    console.log(
-      `[run-analysis] Starting worker loop with budget ${timeBudgetMs}ms`
+  if (Number.isNaN(timeBudgetMs) || timeBudgetMs < 10_000) {
+    return NextResponse.json(
+      { error: 'timeBudgetMs must be at least 10000ms' },
+      { status: 400 },
     );
+  }
 
-    const workerStart = Date.now();
+  console.log(`Starting analysis cron run (budget: ${timeBudgetMs}ms)...`);
 
-    await startAnalysisWorkerLoop({
-      once: false,
+  try {
+    const metrics = await startAnalysisWorkerLoop({
       timeBudgetMs,
     });
 
-    const workerElapsed = Date.now() - workerStart;
-    const totalElapsed = Date.now() - requestStart;
-
-    console.log(
-      `[run-analysis] Worker completed successfully in ${workerElapsed}ms`
-    );
+    console.log(`Finished analysis cron run. Summary:`, metrics);
 
     return NextResponse.json({
-      success: true,
-      message: 'Analysis cron completed successfully',
-      workerElapsedMs: workerElapsed,
-      totalElapsedMs: totalElapsed,
-      timeBudgetMs,
+      success: metrics.success,
+      message: 'Analysis worker execution completed',
+      metrics,
     });
-  } catch (error) {
-    const elapsed = Date.now() - requestStart;
-
-    console.error(
-      '[run-analysis] Cron execution failed',
-      error instanceof Error
-        ? {
-            message: error.message,
-            stack: error.stack,
-            elapsedMs: elapsed,
-          }
-        : error
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-        elapsedMs: elapsed,
-      },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    console.error('run-analysis cron error:', error instanceof Error ? error.message : "Unknown error");
+    return NextResponse.json({
+      error: 'Internal server error',
+      success: false,
+    }, { status: 500 });
   }
 }
