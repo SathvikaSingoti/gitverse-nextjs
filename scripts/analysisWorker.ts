@@ -138,7 +138,8 @@ async function runJob(
 
 export interface JobOutcome {
   jobId: string;
-  status: "processed" | "failed";
+  status: "processed" | "failed" | "errored";
+  error?: string;
 }
 
 export interface AnalysisWorkerSummary {
@@ -146,11 +147,11 @@ export interface AnalysisWorkerSummary {
   jobsProcessed: number;
   jobsSkipped: number;
   jobsFailed: number;
+  jobsErrored: number;
   executionDurationMs: number;
   budgetUsedMs?: number;
   success: boolean;
-  budgetExhausted?: boolean;
-  earlyStopReason?: string;
+  jobOutcomes: JobOutcome[];
 }
 
 export async function startAnalysisWorkerLoop(opts?: {
@@ -176,6 +177,7 @@ export async function startAnalysisWorkerLoop(opts?: {
   let jobsProcessed = 0;
   let jobsSkipped = 0;
   let jobsFailed = 0;
+  let jobsErrored = 0;
   const jobOutcomes: JobOutcome[] = [];
 
   const shutdown = async (signal: string) => {
@@ -241,24 +243,27 @@ export async function startAnalysisWorkerLoop(opts?: {
           jobsProcessed,
           jobsSkipped,
           jobsFailed,
+          jobsErrored,
           executionDurationMs: Date.now() - startTimeMs,
           budgetUsedMs: opts?.timeBudgetMs
             ? Date.now() - startTimeMs
             : undefined,
           success: false,
-          budgetExhausted,
-          earlyStopReason,
+          jobOutcomes,
         };
       }
       await sleep(pollIntervalMs);
     }
   }
 
+  const success = jobsFailed === 0 && jobsErrored === 0;
+
   return {
     totalJobsScanned,
     jobsProcessed,
     jobsSkipped,
     jobsFailed,
+    jobsErrored,
     executionDurationMs: Date.now() - startTimeMs,
     budgetUsedMs: opts?.timeBudgetMs
       ? Date.now() - startTimeMs
