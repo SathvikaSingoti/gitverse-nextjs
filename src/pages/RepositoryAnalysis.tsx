@@ -24,6 +24,8 @@ import {
   AlertCircle,
   Clock,
   RefreshCw,
+  RotateCcw,
+  SearchX,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -206,7 +208,7 @@ export default function RepositoryAnalysis() {
       // Use functional setJob so we always compare against the latest job
       // state, avoiding the stale-closure bug where the polling loop holds
       // an old snapshot of job and never sees progress-only updates.
-      setJob((prevJob) => {
+      setJob((prevJob: any) => {
         const prevPercent = prevJob?.progressPercent ?? null;
         const prevMessage = prevJob?.progressMessage ?? null;
         const nextPercent = nextJob?.progressPercent ?? null;
@@ -445,6 +447,45 @@ const formattedLastAnalyzed =
                 </div>
               </div>
 
+            ) : repository &&
+              !repository.commits?.length &&
+              !repository.files?.length &&
+              !repository.languages?.length &&
+              !repository.contributors?.length ? (
+              /* ── Done but no data — show empty state ── */
+              <div className="glass rounded-lg p-12 text-center space-y-6">
+                <div className="flex justify-center">
+                  <div className="p-4 rounded-full bg-primary/10">
+                    <SearchX className="h-12 w-12 text-primary" />
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold mb-2">
+                    No analysis data available
+                  </h2>
+                  <p className="text-muted-foreground max-w-md mx-auto text-sm">
+                    The analysis completed but didn&apos;t find any data.
+                    This can happen with empty repositories or when
+                    the analysis process encounters issues.
+                  </p>
+                </div>
+                <div className="flex justify-center gap-3">
+                  <button
+                    onClick={handleReAnalyze}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg glass hover:bg-white/10 transition-all duration-300 text-sm"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Re-analyze Repository
+                  </button>
+                  <button
+                    onClick={() => router.push("/dashboard")}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all duration-300 text-sm"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Dashboard
+                  </button>
+                </div>
+              </div>
             ) : (
               /* â”€â”€ Done â€” show tabs â”€â”€ */
               <>
