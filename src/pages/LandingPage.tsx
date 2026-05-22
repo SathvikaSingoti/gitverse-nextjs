@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ShortcutHint } from "@/components/ui/ShortcutHint";
 import {
   GitBranch,
   Network,
@@ -433,6 +434,7 @@ export default function LandingPage() {
               <p className="text-sm text-muted-foreground mt-3">
                 Demo UI only — real analysis happens after install/sign up.
               </p>
+              <ShortcutHint />
             </form>
 
             {/* Demos */}

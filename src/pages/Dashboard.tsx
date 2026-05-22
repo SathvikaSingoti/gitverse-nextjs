@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { ShortcutHint } from "@/components/ui/ShortcutHint";
 import {
   GitBranch,
   TrendingUp,
@@ -253,9 +254,7 @@ export default function Dashboard() {
                 {analyzing ? "Analyzing..." : "Analyze Repository"}
               </Button>
             </div>
-              <p className="text-xs text-muted-foreground mt-2">
-              Press &quot;/&quot; to focus search • Esc to clear
-              </p>
+              <ShortcutHint />
             
           </CardContent>
         </Card>
