@@ -170,7 +170,10 @@ export class GitHubService {
         const status = error.response?.status;
         const config = error.config as any;
 
-        config.retryCount = config.retryCount || 0;
+        // Track retries separately for rate-limit and transient so one
+        // doesn't consume the other's budget.
+        config.rateLimitRetryCount = config.rateLimitRetryCount || 0;
+        config.transientRetryCount = config.transientRetryCount || 0;
 
         const isRateLimit = status === 429 || status === 403;
         if (isRateLimit) {
@@ -189,8 +192,9 @@ export class GitHubService {
               }
               throw new GitHubRateLimitError(retrySeconds);
             }
-            config.retryCount += 1;
-            const delayMs = getRetryDelayMs(error, config.retryCount) ?? 1000;
+            config.rateLimitRetryCount += 1;
+            const delayMs = getRetryDelayMs(error, config.rateLimitRetryCount) ?? 1000;
+            console.log(`Rate-limited, retrying ${config.url} (attempt ${config.rateLimitRetryCount}/3)`);
             await new Promise((resolve) => setTimeout(resolve, delayMs));
             return this.client(config);
           }
@@ -205,10 +209,10 @@ export class GitHubService {
           error.code === "ETIMEDOUT" ||
           !error.response
         ) {
-          if (config.retryCount < 3) {
-            config.retryCount += 1;
-            const backoff = Math.pow(2, config.retryCount) * 1000 + Math.random() * 1000;
-            console.log(`Retrying GitHub API request ${config.url} (attempt ${config.retryCount}) due to ${status || error.code}...`);
+          if (config.transientRetryCount < 3) {
+            config.transientRetryCount += 1;
+            const backoff = Math.pow(2, config.transientRetryCount) * 1000 + Math.random() * 1000;
+            console.log(`Retrying ${config.url} (attempt ${config.transientRetryCount}/3) due to ${status || error.code}...`);
             await new Promise((resolve) => setTimeout(resolve, backoff));
             return this.client(config);
           }
