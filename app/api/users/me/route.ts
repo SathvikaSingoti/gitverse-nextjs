@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { requireAuth , sanitizeError } from "@/lib/middleware";
+import { requireAuth, sanitizeError } from "@/lib/middleware";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -26,41 +26,43 @@ export async function GET(request: NextRequest) {
       })) > 0;
 
     if (!userDetails) {
-  return NextResponse.json(
-    { error: "User not found" },
-    {
-      status: 404,
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, private",
-      },
+      return NextResponse.json(
+        { error: "User not found" },
+        {
+          status: 404,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+          },
+        },
+      );
     }
-  );
-}
 
-    return NextResponse.json({
-      id: userDetails.id,
-      name: userDetails.name,
-      email: userDetails.email,
-      image: userDetails.image,
-      createdAt: userDetails.createdAt,
-      avatarUrl: (userDetails as any).image,
-      isGoogleLinked: hasGoogleAccount,
-    },
-   {
-    headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate, private",
-    },
-  }
-);
+    return NextResponse.json(
+      {
+        id: userDetails.id,
+        name: userDetails.name,
+        email: userDetails.email,
+        image: userDetails.image,
+        createdAt: userDetails.createdAt,
+        avatarUrl: (userDetails as any).image,
+        isGoogleLinked: hasGoogleAccount,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, private",
+        },
+      },
+    );
   } catch (error: any) {
     console.error("Error fetching user:", sanitizeError(error));
     return NextResponse.json(
       { error: "Failed to fetch user" },
-      { status: 500,
-    headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate, private",
-    },
-  } 
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, private",
+        },
+      },
     );
   }
 }
@@ -73,28 +75,35 @@ export async function DELETE(request: NextRequest) {
       where: { id: user.userId },
     });
 
-    return NextResponse.json({ message: "Account deleted" },
-  {
-    headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate, private",
-    },
-  });
+    return NextResponse.json(
+      { message: "Account deleted" },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, private",
+        },
+      },
+    );
   } catch (error: any) {
     console.error("Error deleting account:", sanitizeError(error));
     if (error?.code === "P2025") {
-      return NextResponse.json({ error: "User not found" }, { status: 404,
-    headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate, private",
-    },
-   });
+      return NextResponse.json(
+        { error: "User not found" },
+        {
+          status: 404,
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+          },
+        },
+      );
     }
     return NextResponse.json(
       { error: "Failed to delete account" },
-      { status: 500,
-    headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate, private",
-    },
-  } 
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, private",
+        },
+      },
     );
   }
 }
