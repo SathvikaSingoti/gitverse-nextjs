@@ -19,19 +19,29 @@ import {
   CardContent,
 } from "@/components/ui";
 
+interface FileData {
+  name: string;
+  path: string;
+  size?: number;
+  extension?: string;
+  language?: string;
+  lines?: number;
+  createdAt?: string;
+}
+
 interface FileNode {
   name: string;
   type: "file" | "folder";
   path: string;
   size?: number;
-  fileData?: any; // Reference to the actual file object from repository
+  fileData?: FileData; // Reference to the actual file object from repository
   children?: FileNode[];
 }
 
 interface FileTreeProps {
   node: FileNode;
   level?: number;
-  onFileSelect?: (fileData: any) => void;
+  onFileSelect?: (fileData: FileData) => void;
 }
 
 const FileTreeNode: React.FC<FileTreeProps> = ({
@@ -133,10 +143,10 @@ interface FileStructureProps {
 }
 
 export const FileStructure = ({ repository }: FileStructureProps) => {
-  const [selectedFile, setSelectedFile] = useState<any | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
 
   // Build file tree from repository files
-  const buildFileTree = (files: any[]): FileNode => {
+  const buildFileTree = (files: FileData[]): FileNode => {
     const root: FileNode = {
       name: repository?.name || "root",
       type: "folder",
@@ -144,7 +154,7 @@ export const FileStructure = ({ repository }: FileStructureProps) => {
       children: [],
     };
 
-    files?.forEach((file: any) => {
+    files?.forEach((file: FileData) => {
       const parts = file.path.split("/").filter(Boolean);
       let current = root;
 
@@ -176,7 +186,7 @@ export const FileStructure = ({ repository }: FileStructureProps) => {
 
   const fileTree = buildFileTree(repository?.files || []);
 
-  const handleFileSelect = (fileData: any) => {
+  const handleFileSelect = (fileData: FileData) => {
     setSelectedFile(fileData);
   };
 
