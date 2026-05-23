@@ -31,10 +31,31 @@ interface BranchCommit {
   isMerge: boolean;
 }
 
+export interface RepositoryBranch {
+  id: string | number;
+  name: string;
+  isDefault?: boolean;
+  isProtected?: boolean;
+  lastCommitAt?: string | Date;
+}
+
+export interface RepositoryCommit {
+  id?: string | number;
+  hash?: string;
+  shortHash?: string;
+  message?: string;
+  authorName?: string;
+  committedAt?: string | Date;
+  createdAt?: string | Date;
+  branch?: string;
+  parents?: string[];
+  isMerge?: boolean;
+}
+
 interface BranchVisualizationProps {
   repository?: {
-    branches?: Branch[];
-    commits?: BranchCommit[];
+    branches?: RepositoryBranch[];
+    commits?: RepositoryCommit[];
   };
 }
 
@@ -46,7 +67,7 @@ export function BranchVisualization({ repository }: BranchVisualizationProps) {
 
   // Use real branches from repository or empty array
   const branches: Branch[] =
-    repository?.branches?.map((branch: Branch) => ({
+    repository?.branches?.map((branch: RepositoryBranch) => ({
       id: branch.id.toString(),
       name: branch.name,
       isDefault: branch.isDefault || false,
@@ -56,7 +77,7 @@ export function BranchVisualization({ repository }: BranchVisualizationProps) {
         hash: "",
         message: "",
         author: "",
-        timestamp: branch.lastCommitAt || new Date().toISOString(),
+        timestamp: branch.lastCommitAt ? new Date(branch.lastCommitAt).toISOString() : new Date().toISOString(),
       },
       ahead: 0,
       behind: 0,
@@ -301,7 +322,17 @@ export function BranchVisualization({ repository }: BranchVisualizationProps) {
             <div className="space-y-4">
               {(repository?.commits || [])
                 .slice(0, 10)
-                .map((commit: BranchCommit, index: number) => {
+                .map((rawCommit: RepositoryCommit, index: number) => {
+                  const commit: BranchCommit = {
+                    hash: rawCommit.hash || rawCommit.shortHash || "",
+                    message: rawCommit.message || "",
+                    author: rawCommit.authorName || "Unknown",
+                    authorName: rawCommit.authorName || "Unknown",
+                    timestamp: rawCommit.committedAt ? new Date(rawCommit.committedAt).toISOString() : new Date().toISOString(),
+                    branch: rawCommit.branch || "main",
+                    parents: rawCommit.parents || [],
+                    isMerge: rawCommit.isMerge || false,
+                  };
                   const branchColor = getBranchTypeColor(commit.branch);
 
                   return (
