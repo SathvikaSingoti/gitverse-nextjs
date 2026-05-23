@@ -14,6 +14,7 @@ interface Branch {
     author: string;
     timestamp: string;
   };
+  lastCommitAt?: string;
   ahead: number;
   behind: number;
   commits: BranchCommit[];
@@ -23,6 +24,7 @@ interface BranchCommit {
   hash: string;
   message: string;
   author: string;
+  authorName?: string;
   timestamp: string;
   branch: string;
   parents: string[];
@@ -30,7 +32,10 @@ interface BranchCommit {
 }
 
 interface BranchVisualizationProps {
-  repository?: any;
+  repository?: {
+    branches?: Branch[];
+    commits?: BranchCommit[];
+  };
 }
 
 type FilterType = "all" | "active" | "stale" | "merged";
@@ -41,7 +46,7 @@ export function BranchVisualization({ repository }: BranchVisualizationProps) {
 
   // Use real branches from repository or empty array
   const branches: Branch[] =
-    repository?.branches?.map((branch: any) => ({
+    repository?.branches?.map((branch: Branch) => ({
       id: branch.id.toString(),
       name: branch.name,
       isDefault: branch.isDefault || false,
@@ -296,7 +301,7 @@ export function BranchVisualization({ repository }: BranchVisualizationProps) {
             <div className="space-y-4">
               {(repository?.commits || [])
                 .slice(0, 10)
-                .map((commit: any, index: number) => {
+                .map((commit: BranchCommit, index: number) => {
                   const branchColor = getBranchTypeColor(commit.branch);
 
                   return (
