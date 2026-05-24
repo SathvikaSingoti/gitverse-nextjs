@@ -1,5 +1,6 @@
 import prisma from "../prisma";
 import type { AnalysisJob } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 export type JobProgressUpdate = {
   progressPercent?: number;
@@ -8,6 +9,7 @@ export type JobProgressUpdate = {
 };
 
 const DEFAULT_LOCK_MS = 5 * 60 * 1000;
+const PROGRESS_MESSAGE_QUEUED = "Queued — waiting to start...";
 
 function computeBackoffMs(attempt: number): number {
   // Exponential backoff with cap (10s, 20s, 40s, ... up to 5m)
@@ -18,34 +20,11 @@ function computeBackoffMs(attempt: number): number {
 
 export class AnalysisJobService {
   async createRepositoryAnalysisJob(params: {
-  repositoryId: number;
-  userId: number;
-  maxAttempts?: number;
-}): Promise<AnalysisJob> {
-  try {
-    return await prisma.analysisJob.create({
-      data: {
-        repositoryId: params.repositoryId,
-        userId: params.userId,
-        type: "repository_analysis",
-        status: "QUEUED",
-        progressPercent: 0,
-        progressMessage: "Queued — waiting to start...",
-        maxAttempts: params.maxAttempts ?? 3,
-      },
-    });
-  } catch (error: any) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      const existingJob = await prisma.analysisJob.findFirst({
-        where: {
-          repositoryId: params.repositoryId,
-          status: { in: ["QUEUED", "PROCESSING"] },
-        },
-      });
-      if (existingJob) return existingJob;
+    repositoryId: number;
+    userId: number;
+    maxAttempts?: number;
+  }): Promise<AnalysisJob> {
+    try {
       return await prisma.analysisJob.create({
         data: {
           repositoryId: params.repositoryId,
@@ -53,25 +32,36 @@ export class AnalysisJobService {
           type: "repository_analysis",
           status: "QUEUED",
           progressPercent: 0,
-          progressMessage: "Queued — waiting to start...",
+          progressMessage: PROGRESS_MESSAGE_QUEUED,
           maxAttempts: params.maxAttempts ?? 3,
         },
       });
+    } catch (error: any) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const existingJob = await prisma.analysisJob.findFirst({
+          where: {
+            repositoryId: params.repositoryId,
+            status: { in: ["QUEUED", "PROCESSING"] },
+          },
+        });
+        if (existingJob) return existingJob;
+        return await prisma.analysisJob.create({
+          data: {
+            repositoryId: params.repositoryId,
+            userId: params.userId,
+            type: "repository_analysis",
+            status: "QUEUED",
+            progressPercent: 0,
+            progressMessage: PROGRESS_MESSAGE_QUEUED,
+            maxAttempts: params.maxAttempts ?? 3,
+          },
+        });
+      }
+      throw error;
     }
-    throw error;
-  }
-}
-
-  async getJob(params: {
-    jobId: string;
-    userId: number;
-  }): Promise<AnalysisJob | null> {
-    return prisma.analysisJob.findFirst({
-      where: {
-        id: params.jobId,
-        userId: params.userId,
-      },
-    });
   }
 
   async updateProgress(params: {
