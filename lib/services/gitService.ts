@@ -358,6 +358,10 @@ export class GitService {
     return new Promise((resolve, reject) => {
       const child = spawn("git", args, spawnOpts);
 
+      child.on("error", (err) => {
+        reject(new Error(`Failed to get commits: ${err.message}`));
+      });
+
       if (!child.stdout) {
         reject(new Error("Failed to spawn git process: stdout is null"));
         return;
@@ -498,9 +502,7 @@ export class GitService {
         stderr += chunk.toString();
       });
 
-      child.on("error", (err) => {
-        reject(new Error(`Failed to get commits: ${err.message}`));
-      });
+
 
       child.on("exit", (code) => {
         if (code !== 0 && commits.length === 0) {
