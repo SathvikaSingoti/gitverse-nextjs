@@ -681,6 +681,17 @@
     transform: none;
     opacity: 1;
   }
+
+  body, 
+  header, 
+  aside, 
+  main,
+  .card,
+  .glass,
+  nav,
+  footer {
+    transition: none !important;
+  }
 }
 
 @keyframes typing-cursor-blink {
