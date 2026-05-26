@@ -41,6 +41,10 @@ Paste a repo → GitVerse builds a visual map + AI onboarding so contributors ca
 - Ask AI questions about files, folders, and architecture
 - Generate analysis jobs and track progress
 
+## Supported Node Version
+
+This project officially supports **Node.js 22.x** (as specified in [package.json](package.json)).
+
 ## Quickstart (local dev)
 
 ```bash
@@ -53,6 +57,16 @@ npm run dev
 ```
 
 Open http://localhost:3000
+
+### Database Seeding
+
+To populate your local database with realistic mock data for testing UI components without manually creating records, run:
+
+```bash
+npm run db:seed
+```
+
+> **Note:** This command will clear existing data in your local database before generating the new interconnected records (users, repositories, commits, etc.).
 
 ## Contribution-first onboarding (the hackathon angle)
 
@@ -139,6 +153,7 @@ gitverse-nextjs/
 - `npm run prisma:generate` - Generate Prisma client
 - `npm run prisma:migrate` - Run database migrations
 - `npm run prisma:studio` - Open Prisma Studio
+- `npm run db:seed` - Seed the database with mock data
 
 ## 🔧 API Routes
 

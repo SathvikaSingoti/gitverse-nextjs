@@ -8,7 +8,8 @@ export type JobProgressUpdate = {
   progressDetails?: unknown;
 };
 
-const DEFAULT_LOCK_MS = 10 * 60 * 1000;
+const DEFAULT_LOCK_MS = 5 * 60 * 1000;
+const PROGRESS_MESSAGE_QUEUED = "Queued — waiting to start...";
 
 function computeBackoffMs(attempt: number): number {
   // Exponential backoff with cap (10s, 20s, 40s, ... up to 5m)
@@ -22,7 +23,16 @@ export class AnalysisJobService {
     repositoryId: number;
     userId: number;
     maxAttempts?: number;
+    scope?: string;
   }): Promise<AnalysisJob> {
+    const existing = await prisma.analysisJob.findFirst({
+      where: {
+        repositoryId: params.repositoryId,
+        status: { in: ["QUEUED", "PROCESSING"] },
+      },
+    });
+    if (existing) return existing;
+
     try {
       return await prisma.analysisJob.create({
         data: {
@@ -32,6 +42,7 @@ export class AnalysisJobService {
           status: "QUEUED",
           progressPercent: 0,
           progressMessage: "Queued",
+          progressDetails: params.scope ? { scope: params.scope } : undefined,
           maxAttempts: params.maxAttempts ?? 3,
         },
       });
@@ -40,7 +51,7 @@ export class AnalysisJobService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002"
       ) {
-        const existingJob = await prisma.analysisJob.findFirst({
+        const activeJob = await prisma.analysisJob.findFirst({
           where: {
             repositoryId: params.repositoryId,
             status: { in: ["QUEUED", "PROCESSING"] },
@@ -57,6 +68,7 @@ export class AnalysisJobService {
             status: "QUEUED",
             progressPercent: 0,
             progressMessage: "Queued",
+            progressDetails: params.scope ? { scope: params.scope } : undefined,
             maxAttempts: params.maxAttempts ?? 3,
           },
         });
@@ -85,10 +97,14 @@ export class AnalysisJobService {
   }): Promise<void> {
     const lockExtension = params.extendLockMs ?? DEFAULT_LOCK_MS;
 
+    const pct = params.update.progressPercent !== undefined
+      ? Math.max(0, Math.min(100, Math.round(params.update.progressPercent)))
+      : undefined;
+
     await prisma.analysisJob.update({
       where: { id: params.jobId },
       data: {
-        progressPercent: params.update.progressPercent,
+        progressPercent: pct,
         progressMessage: params.update.progressMessage,
         progressDetails: params.update.progressDetails as any,
         // Heartbeat: extend lock while we’re actively working
@@ -108,7 +124,7 @@ export class AnalysisJobService {
       data: {
         status: "DONE",
         progressPercent: 100,
-        progressMessage: "Done",
+        progressMessage: "Analysis complete! ✓",
         finishedAt: new Date(),
         error: null,
         lockedAt: null,
@@ -164,7 +180,7 @@ export class AnalysisJobService {
       data: {
         status: "FAILED",
         finishedAt: new Date(),
-        progressMessage: "Failed",
+        progressMessage: "Analysis failed. Please try again.",
         error: params.error,
         lockedAt: null,
         lockedBy: null,
@@ -189,12 +205,19 @@ export class AnalysisJobService {
     // 2) re-fetch via Prisma Client (typed + camelCase fields)
     const rows = await prisma.$queryRaw<{ id: string }[]>`
       WITH candidate AS (
-        SELECT id
-        FROM analysis_jobs
-        WHERE next_run_at <= NOW()
-          AND status IN ('QUEUED', 'PROCESSING')
-          AND (lock_expires_at IS NULL OR lock_expires_at < NOW())
-        ORDER BY created_at ASC
+        SELECT a1.id
+        FROM analysis_jobs a1
+        WHERE a1.next_run_at <= NOW()
+          AND a1.status IN ('QUEUED', 'PROCESSING')
+          AND (a1.lock_expires_at IS NULL OR a1.lock_expires_at < NOW())
+          AND NOT EXISTS (
+            SELECT 1 FROM analysis_jobs a2
+            WHERE a2.repository_id = a1.repository_id
+              AND a2.status = 'PROCESSING'
+              AND a2.id != a1.id
+              AND (a2.lock_expires_at IS NULL OR a2.lock_expires_at > NOW())
+          )
+        ORDER BY a1.created_at ASC
         LIMIT 1
         FOR UPDATE SKIP LOCKED
       )
@@ -207,7 +230,7 @@ export class AnalysisJobService {
         attempts = j.attempts + 1,
         started_at = COALESCE(j.started_at, NOW()),
         updated_at = NOW(),
-        progress_message = COALESCE(j.progress_message, 'Processing'),
+        progress_message = COALESCE(j.progress_message, 'Analysis in progress...'),
         progress_percent = COALESCE(j.progress_percent, 0)
       FROM candidate
       WHERE j.id = candidate.id
