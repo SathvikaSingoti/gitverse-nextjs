@@ -97,16 +97,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const repository = await repositoryService.createRepository({
-      name,
-      url: normalizedUrl,
-      description,
-      targetDirectory: normalizedTargetDirectory ?? undefined,
-      userId: user.userId,
-    });
-
-    console.log("Repository created:", repository.id);
-
     const rawScope = body.scope;
     if (rawScope != null && (typeof rawScope !== "string" || !isValidGitScope(rawScope))) {
       return NextResponse.json(
@@ -118,6 +108,17 @@ export async function POST(request: NextRequest) {
     if (rawScope && typeof rawScope === "string") {
       trimmedScope = rawScope.trim();
     }
+
+    const repository = await repositoryService.createRepository({
+      name,
+      url: normalizedUrl,
+      description,
+      targetDirectory: normalizedTargetDirectory ?? undefined,
+      userId: user.userId,
+    });
+
+    console.log("Repository created:", repository.id);
+
     const job = await analysisJobService.createRepositoryAnalysisJob({
       repositoryId: repository.id,
       userId: user.userId,
