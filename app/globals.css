@@ -878,4 +878,16 @@
   .marquee__track {
     animation: none !important;
   }
+
+  body,
+  header,
+  aside,
+  main,
+  .card,
+  .glass,
+  nav,
+  footer {
+    transition: none !important;
+    animation: none !important;
+  }
 }

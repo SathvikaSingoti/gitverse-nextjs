@@ -26,7 +26,6 @@ import {
 import { Button, ThemeToggle } from "@/components/ui";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { toast } from "@/hooks/use-toast";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -191,7 +190,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   <span className="text-xs">⌘</span>K / Ctrl K
                 </kbd>
               </Button>
-              <ThemeToggle />
             </div>
 
             <div className="flex items-center gap-3">
