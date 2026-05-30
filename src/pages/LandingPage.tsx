@@ -669,7 +669,8 @@ export default function LandingPage() {
                     className={`feature-carousel__slide ${
                       index === activeFeatureIndex ? "active" : ""
                     } cursor-pointer`}
-                    aria-hidden={index !== activeFeatureIndex}
+                    aria-current={index === activeFeatureIndex ? "true" : undefined}
+                    aria-label={`${feature.title} (${index + 1} of ${totalFeatures})`}
                     role="button"
                     tabIndex={0}
                     onClick={() => {
