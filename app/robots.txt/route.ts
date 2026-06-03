@@ -1,9 +1,10 @@
-export async function GET() {
+export async function GET(request: Request) {
+  const host = request.headers.get('host') || 'gitverse-nextjs.vercel.app'
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
+  const baseUrl = `${protocol}://${host}`
+
   const body = `User-agent: *
 Allow: /
-Allow: /contribute
-Allow: /login
-Allow: /signup
 Disallow: /dashboard
 Disallow: /analysis
 Disallow: /analyze
@@ -12,7 +13,7 @@ Disallow: /search
 Disallow: /settings
 Disallow: /api/
 
-Sitemap: https://gitverse-nextjs.vercel.app/sitemap.xml`
+Sitemap: ${baseUrl}/sitemap.xml`
 
   return new Response(body, {
     headers: { 'Content-Type': 'text/plain' },

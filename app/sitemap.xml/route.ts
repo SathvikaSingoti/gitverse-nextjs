@@ -1,12 +1,17 @@
-export async function GET() {
-  const baseUrl = 'https://gitverse-nextjs.vercel.app'
+export async function GET(request: Request) {
+  const host = request.headers.get('host') || 'gitverse-nextjs.vercel.app'
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
+  const baseUrl = `${protocol}://${host}`
+
   const routes = ['', '/contribute', '/login', '/signup']
+  const lastmod = new Date().toISOString().split('T')[0]
 
   const urls = routes
     .map(
       (route) => `
   <url>
     <loc>${baseUrl}${route}</loc>
+    <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>${route === '' ? '1.0' : '0.8'}</priority>
   </url>`
