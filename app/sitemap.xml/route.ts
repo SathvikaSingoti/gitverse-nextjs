@@ -1,7 +1,11 @@
 export async function GET(request: Request) {
-  const forwardedProto = request.headers.get('x-forwarded-proto')
+  const forwardedProtoRaw = request.headers.get('x-forwarded-proto') || ''
+  const forwardedHostRaw = request.headers.get('x-forwarded-host') || ''
+  const hostRaw = request.headers.get('host') || ''
+
+  const forwardedProto = forwardedProtoRaw.split(',')[0].trim()
   const protocol = forwardedProto || (process.env.NODE_ENV === 'development' ? 'http' : 'https')
-  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'gitverse-nextjs.vercel.app'
+  const host = forwardedHostRaw.split(',')[0].trim() || hostRaw || 'gitverse-nextjs.vercel.app'
   const baseUrl = `${protocol}://${host}`
 
   // IMPORTANT: Update this list when adding new public pages
