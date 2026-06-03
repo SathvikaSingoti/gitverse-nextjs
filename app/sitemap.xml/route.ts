@@ -1,17 +1,18 @@
 export async function GET(request: Request) {
-  const host = request.headers.get('host') || 'gitverse-nextjs.vercel.app'
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
+  const forwardedProto = request.headers.get('x-forwarded-proto')
+  const protocol = forwardedProto || (process.env.NODE_ENV === 'development' ? 'http' : 'https')
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'gitverse-nextjs.vercel.app'
   const baseUrl = `${protocol}://${host}`
 
+  // IMPORTANT: Update this list when adding new public pages
+  // Exclude authenticated routes (those are in robots.txt disallow list)
   const routes = ['', '/contribute', '/login', '/signup']
-  const lastmod = new Date().toISOString().split('T')[0]
 
   const urls = routes
     .map(
       (route) => `
   <url>
     <loc>${baseUrl}${route}</loc>
-    <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>${route === '' ? '1.0' : '0.8'}</priority>
   </url>`
