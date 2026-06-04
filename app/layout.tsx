@@ -11,6 +11,7 @@ import { FocusRingManager } from "@/components/ui/FocusRingManager";
 import ProgressBarProvider from "@/components/providers/ProgressBarProvider";
 import "./globals.css";
 
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -92,9 +93,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 </main>
               </ProgressBarProvider>
 
-              <Toaster />
-              <ScrollToTop />
-            </AuthProvider>
+                <Toaster />
+                <ScrollToTop />
+              </AuthProvider>
+            </SessionGuard>
           </NextAuthProvider>
         </ThemeProvider>
       </body>
