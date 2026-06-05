@@ -5,7 +5,8 @@ import { Card } from "@/components/ui";
 import { geminiService, ChatMessage } from "@/services/gemini";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 interface AIChatInterfaceProps {
   repositoryContext?: {
     name: string;
@@ -142,66 +143,7 @@ export function AIChatInterface({ repositoryContext }: AIChatInterfaceProps) {
     }
   };
 
-  const formatMessage = (content: string) => {
-    // Simple markdown-like formatting
-    return content.split("\n").map((line, i) => {
-      // Code blocks
-      if (line.startsWith("```")) {
-        return (
-          <div key={i} className="text-xs text-primary">
-            ───────
-          </div>
-        );
-      }
-      // Bold text
-      if (line.includes("**")) {
-        const parts = line.split("**");
-        return (
-          <p key={i} className="mb-2">
-            {parts.map((part, j) =>
-              j % 2 === 0 ? part : <strong key={j}>{part}</strong>
-            )}
-          </p>
-        );
-      }
-      // Code inline
-      if (line.includes("`")) {
-        const parts = line.split("`");
-        return (
-          <p key={i} className="mb-2">
-            {parts.map((part, j) =>
-              j % 2 === 0 ? (
-                part
-              ) : (
-                <code
-                  key={j}
-                  className="bg-primary/10 px-1 py-0.5 rounded text-sm"
-                >
-                  {part}
-                </code>
-              )
-            )}
-          </p>
-        );
-      }
-      // Bullet points
-      if (line.trim().startsWith("-") || line.trim().startsWith("•")) {
-        return (
-          <li key={i} className="ml-4 mb-1">
-            {line.trim().substring(1).trim()}
-          </li>
-        );
-      }
-      // Regular text
-      return line.trim() ? (
-        <p key={i} className="mb-2">
-          {line}
-        </p>
-      ) : (
-        <br key={i} />
-      );
-    });
-  };
+
 
   return (
     <div className="flex flex-col h-full">
@@ -238,8 +180,8 @@ export function AIChatInterface({ repositoryContext }: AIChatInterfaceProps) {
                   )}
                 </button>
               </div>
-              <div className="text-sm leading-relaxed">
-                {formatMessage(message.content)}
+              <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
               </div>
               <div className="text-xs text-muted-foreground mt-2">
                 {message.timestamp.toLocaleTimeString([], {
@@ -266,8 +208,8 @@ export function AIChatInterface({ repositoryContext }: AIChatInterfaceProps) {
               <div className="text-xs font-semibold opacity-70 mb-2">
                 AI Assistant
               </div>
-              <div className="text-sm leading-relaxed">
-                {formatMessage(streamingMessage)}
+              <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingMessage}</ReactMarkdown>
               </div>
               <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
