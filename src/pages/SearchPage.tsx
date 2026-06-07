@@ -201,7 +201,7 @@ finally {
           </CardContent>
         </Card>
         {/* Results Count */}
-        {!loading && (
+        {!loading && !error && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               {sortedRepositories.length}{" "}
