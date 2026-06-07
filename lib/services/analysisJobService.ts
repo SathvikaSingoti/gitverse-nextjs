@@ -10,49 +10,41 @@ export type JobProgressUpdate = {
   progressDetails?: unknown;
 };
 
+/**
+ * Default lock duration in milliseconds (5 minutes). When a worker claims
+ * a job, the lock expires after this interval unless extended via heartbeat.
+ * The cron worker runs every 5 minutes with a 4-minute timeout, so locks
+ * expire before the next worker cycle begins, preventing double-processing
+ * when a worker crashes without releasing its locks.
+ */
 const DEFAULT_LOCK_MS = 5 * 60 * 1000;
 
 /**
- * AnalysisJobService
+ * AnalysisJobService manages the lifecycle of background analysis jobs.
  *
- * Manages the lifecycle of repository analysis jobs: creation, claiming,
- * progress tracking, completion, and cleanup.  Uses a PostgreSQL-based
- * locking protocol with lock tokens to guarantee exactly-once processing
- * in a concurrent worker environment.
+ * Responsibilities:
+ * - Job creation (repository analysis, architecture generation)
+ * - Job claiming with atomic locking (FOR UPDATE SKIP LOCKED)
+ * - Lock heartbeat and extension
+ * - Orphaned job reclamation (expired lock recovery)
+ * - Progress tracking and status transitions
  *
- * ## Concurrency model
- *
- * - **Atomic reclaim + claim**: `claimNextJob()` runs `reclaimOrphanedJobs()`
- *   inside the same `$transaction` as the CTE claim.  PostgreSQL snapshot
- *   isolation ensures reclaimed rows are visible to the subsequent CTE.
- * - **Lock token**: Every claim generates a fresh `lock_token` UUID via
- *   `gen_random_uuid()`.  All mutating operations (heartbeat, markDone,
- *   markFailed, updateProgress, releaseLock) include the token in their
- *   WHERE clause, preventing stale writes from displaced workers.
- * - **FOR UPDATE SKIP LOCKED**: The claim CTE uses `FOR UPDATE SKIP LOCKED`
- *   so workers never block each other when contending for jobs.
- * - **Per-repo exclusivity**: The `NOT EXISTS` subquery prevents two
- *   PROCESSING jobs for the same repository.
- *
- * ## Race conditions eliminated
- *
- * 1. **TOCTOU reclaim → claim** (issue #1793): Previously, reclaim ran
- *    outside the claim transaction.  A new job inserted between reclaim
- *    and the CTE would be missed.  Now reclaim is inside the transaction.
- *
- * 2. **Zombie worker heartbeat** (issue #1793): A stale heartbeat from a
- *    displaced worker could extend the lock on a job another worker had
- *    claimed.  Now heartbeat checks `lock_token` — after reclaim or
- *    re-claim generates a new token, the old heartbeat silently fails.
- *
- * 3. **Stale markDone/markFailed** (issue #1793): A displaced worker could
- *    complete or fail a job it no longer owned.  Now every mutation
- *    validates both `locked_by` and `lock_token`.
- *
- * See `docs/infrastructure/analysis-job-worker.md` for the full
- * architecture document.
+ * Concurrency model:
+ * - claimNextJob() uses a CTE with FOR UPDATE SKIP LOCKED inside a
+ *   Prisma $transaction, guaranteeing that concurrent workers each
+ *   pick distinct rows without blocking each other.
+ * - reclaimOrphanedJobs() is called at the start of every claim cycle
+ *   so expired locks are released before new jobs are acquired.
+ * - The calling worker (cronWorker.ts) also calls reclaimOrphanedJobs()
+ *   before entering its claim loop, providing a second recovery pass.
  */
 export class AnalysisJobService {
+
+  /**
+   * Returns per-user aggregate counts across all job statuses.
+   * Runs six parallel COUNT queries. If any fails, the entire call
+   * rejects. Used by the dashboard and status API endpoints.
+   */
   async getAnalysisStats(params: { userId: number }): Promise<{
     total: number;
     processing: number;
@@ -87,6 +79,14 @@ export class AnalysisJobService {
     return { total, processing, queued, done, failed, stuck };
   }
 
+  /**
+   * Creates a QUEUED repository analysis job and enqueues it via BullMQ.
+   * If a QUEUED or PROCESSING job already exists for this repository,
+   * returns the existing job instead of creating a duplicate.
+   * The entire check-and-create operation runs inside a $transaction
+   * to prevent race conditions where two callers see no active job
+   * and both create one.
+   */
   async createRepositoryAnalysisJob(params: {
     repositoryId: number;
     userId: number;
@@ -135,6 +135,12 @@ export class AnalysisJobService {
     });
   }
 
+  /**
+   * Creates a QUEUED architecture generation job with PostgreSQL advisory
+   * locking to serialize concurrent creation requests for the same repository.
+   * pg_advisory_xact_lock ensures the check-and-create is serialized at the
+   * database level, not just the application level.
+   */
   async createArchitectureGenerationJob(params: {
     repositoryId: number;
     userId: number;
@@ -185,6 +191,14 @@ export class AnalysisJobService {
     });
   }
 
+  /**
+   * Retrieves a single job by ID, enforcing access control:
+   * 1. The user who created the job
+   * 2. The owner of the repository the job analyses
+   * 3. A member of an organization with access to the repository
+   * Returns null if the job does not exist or the user lacks access.
+   * Cron workers pass userId=0 to bypass the access check (internal caller).
+   */
   async getJob(params: {
     jobId: string;
     userId: number;
@@ -233,6 +247,12 @@ export class AnalysisJobService {
     return jobData as AnalysisJob;
   }
 
+  /**
+   * Updates a job's progress percentage and message.
+   * If workerId is provided, also extends the lock by extendLockMs.
+   * This is called periodically by the repository analysis logic to
+   * report progress and prevent lock expiry during long analyses.
+   */
   async updateProgress(params: {
     jobId: string;
     workerId?: string;
@@ -267,11 +287,13 @@ export class AnalysisJobService {
     });
   }
 
-  async markDone(params: {
-    jobId: string;
-    workerId?: string;
-    lockToken?: string;
-  }): Promise<void> {
+  /**
+   * Marks a job as DONE with 100% progress and clears all lock fields.
+   * Requires workerId in the WHERE clause so only the owning worker can
+   * complete a job. This prevents a race where two workers both think
+   * they own the same job.
+   */
+  async markDone(params: { jobId: string; workerId?: string }): Promise<void> {
     const where: any = { id: params.jobId };
     if (params.workerId) {
       where.lockedBy = params.workerId;
@@ -294,6 +316,14 @@ export class AnalysisJobService {
     });
   }
 
+  /**
+   * Marks a job as FAILED or re-queues it for a retry.
+   * If the error is retryable and attempts < maxAttempts, the job is
+   * set back to QUEUED with an exponential backoff delay via computeBackoffMs.
+   * Non-retryable errors or exhausted attempts result in a permanent FAILED state.
+   * Lock fields are cleared in both cases so other workers can pick up
+   * retried jobs.
+   */
   async markFailed(params: {
     jobId: string;
     workerId?: string;
@@ -346,21 +376,33 @@ export class AnalysisJobService {
   }
 
   /**
-   * Claim the next available job for a worker.
+   * Atomically claims the next available job for a worker.
    *
-   * Runs inside a single `$transaction`:
-   * 1. Reclaims any PROCESSING jobs with expired locks (resets to QUEUED).
-   * 2. CTE claim: atomically picks one eligible job per-repo exclusivity.
+   * The claim uses a Common Table Expression (CTE) with FOR UPDATE SKIP LOCKED
+   * inside a Prisma $transaction. This guarantees:
+   * - Each job is claimed by at most one worker
+   * - Workers do not block each other (SKIP LOCKED)
+   * - A repository cannot have two concurrent analyses (NOT EXISTS subquery)
    *
-   * The claim generates a fresh `lock_token` via `gen_random_uuid()`:
-   * every subsequent operation (heartbeat, markDone, markFailed) must
-   * include this token to prove ownership.
+   * The sequence:
+   * 1. Reclaim orphaned jobs (expired locks → QUEUED)
+   * 2. CTE selects the oldest candidate job (by created_at) that has no
+   *    concurrently running analysis for the same repository
+   * 3. UPDATE locks the row and sets status to PROCESSING
+   * 4. RETURNING the claimed id
+   * 5. Re-fetch via Prisma findUnique for typed camelCase fields
+   *
+   * RETURNING j.* is intentionally avoided because Prisma's raw query
+   * adapter returns snake_case column names that do not match the
+   * AnalysisJob type.
    */
   async claimNextJob(params: {
     workerId: string;
     lockMs?: number;
   }): Promise<AnalysisJob | null> {
     const lockMs = params.lockMs ?? DEFAULT_LOCK_MS;
+
+    await this.reclaimOrphanedJobs();
 
     return prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
@@ -419,9 +461,10 @@ export class AnalysisJobService {
   }
 
   /**
-   * Immediately expire a lock so another worker can reclaim the job.
-   * If `workerId` and `lockToken` are provided, they guard the WHERE
-   * clause to prevent releasing a lock the caller does not own.
+   * Immediately expires a job's lock by setting lockExpiresAt to now.
+   * This makes the job available for reclamation on the next cycle.
+   * Called during graceful worker shutdown so queued jobs are not
+   * blocked for the full DEFAULT_LOCK_MS duration.
    */
   async releaseLock(params: {
     jobId: string;
@@ -442,12 +485,19 @@ export class AnalysisJobService {
   }
 
   /**
-   * Reset all PROCESSING jobs with expired locks back to QUEUED.
-   * Clears `lockToken` so that any stale heartbeat or markDone from a
-   * displaced worker silently fails.
+   * Finds all jobs in PROCESSING status with expired locks (lockExpiresAt
+   * is in the past) and resets them to QUEUED with null lock fields.
+   * This is the crash recovery mechanism: when a worker dies without
+   * releasing its locks, they expire and this function makes them available
+   * for the next worker cycle.
    *
-   * Called inside `claimNextJob`'s transaction to eliminate the TOCTOU
-   * window between reclaim and claim (see #1793).
+   * Called by:
+   * - cronWorker.ts runOnce() before entering the claim loop
+   * - claimNextJob() as a precondition of every claim attempt
+   *
+   * The operation is idempotent — calling it multiple times has no
+   * additional effect since PROCESSING jobs with unexpired locks are
+   * not matched by the WHERE clause.
    */
   async reclaimOrphanedJobs(): Promise<number> {
     const result = await prisma.analysisJob.updateMany({
@@ -466,6 +516,11 @@ export class AnalysisJobService {
     return result.count;
   }
 
+  /**
+   * Counts orphaned jobs (PROCESSING with expired locks) for a user
+   * or globally. Used by the dashboard to show stuck job warnings.
+   * Does not modify any rows — use reclaimOrphanedJobs for that.
+   */
   async countOrphanedJobs(params?: { userId?: number }): Promise<number> {
     const where: any = {
       status: "PROCESSING",
@@ -478,9 +533,11 @@ export class AnalysisJobService {
   }
 
   /**
-   * Release a job back to QUEUED when a worker is shutting down.
-   * Sets `nextRunAt` to NOW so another worker can pick it up
-   * immediately.  Clears `lockToken` to invalidate the old owner.
+   * Releases a job back to QUEUED when a worker is draining (shutting down).
+   * Unlike releaseLock which only expires the lock, this also resets the
+   * lock fields and sets nextRunAt to now so the job is immediately
+   * available for the next worker. Used when the cron worker exits to
+   * ensure jobs are not stuck waiting for the next cron cycle.
    */
   async markDrainReleased(params: {
     jobId: string;
@@ -509,9 +566,15 @@ export class AnalysisJobService {
   }
 
   /**
-   * Safety net for workers that terminate without releasing their locks.
-   * Marks PROCESSING jobs whose lock has expired and whose last update
-   * is older than the grace period (default 10 min) as FAILED.
+   * Marks jobs as FAILED if they have been in PROCESSING status without
+   * updates for longer than the grace period. This is a harder recovery
+   * mechanism than reclaimOrphanedJobs: it permanently fails jobs instead
+   * of requeueing them, preventing infinite retries of jobs whose workers
+   * have permanently disappeared.
+   *
+   * The grace period defaults to 10 minutes. Jobs with null lockExpiresAt
+   * are also matched (edge case where a bug created a PROCESSING job
+   * without setting a lock expiry).
    */
   async cleanupStaleJobs(gracePeriodMs: number = 10 * 60 * 1000): Promise<number> {
     const stale = await prisma.analysisJob.updateMany({
@@ -539,12 +602,13 @@ export class AnalysisJobService {
   }
 
   /**
-   * Extend a worker's lock on a job.
-   *
-   * The UPDATE includes `locked_by` and `lock_token` in the WHERE clause.
-   * If the job was reclaimed or re-claimed by another worker, the
-   * `lock_token` will not match and the UPDATE affects 0 rows — the
-   * caller detects it no longer holds the lock and should stop processing.
+   * Extends a job's lock expiry by lockMs milliseconds.
+   * The raw SQL UPDATE includes both status='PROCESSING' and
+   * locked_by=workerId in the WHERE clause so a worker cannot
+   * accidentally heartbeat a job it does not own. If the job was
+   * already completed or reassigned, the UPDATE matches zero rows
+   * and the heartbeat is silently dropped (the calling worker will
+   * discover the issue on its next operation).
    */
   async heartbeat(params: {
     jobId: string;
