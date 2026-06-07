@@ -24,6 +24,10 @@ import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from "@/lib/middleware
 // Allowed roles in the conversation history
 const ALLOWED_MESSAGE_ROLES = new Set(["user", "model", "assistant"]);
 
+const ALLOWED_SHORT_TERMS = new Set([
+  "api", "sql", "css", "aws", "jsx", "dom", "bug", "env", "git", "ci", "cd", "ui", "ux"
+]);
+
 function parseKnowledgeArray(value: any): string[] {
   if (Array.isArray(value)) {
     return value;
@@ -146,7 +150,7 @@ export async function POST(request: NextRequest) {
         .split(/\s+/)
         .filter(
           (w: string) =>
-            w.length > 3 &&
+            (w.length > 3 || ALLOWED_SHORT_TERMS.has(w)) &&
             ![
               "what",
               "how",
