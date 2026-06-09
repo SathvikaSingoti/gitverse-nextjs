@@ -66,7 +66,7 @@ export default function WebhookInspectorPage() {
   useEffect(() => {
     setSkip(0);
     fetchEvents();
-  }, [statusFilter, eventFilter, idFilter]);
+  }, [statusFilter, eventFilter, idFilter, fetchEvents]);
 
   const toggleExpand = async (id: string) => {
     if (expandedId === id) {
