@@ -98,4 +98,3 @@ export interface ContributionPathPlan {
   aiAssistantHint: string;
   futureAIReady: boolean;
 }
-
