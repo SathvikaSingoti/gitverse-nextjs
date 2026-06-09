@@ -1,3 +1,7 @@
+/**
+ * Shared repository analysis types used across multiple feature detectors
+ */
+
 export type ExperienceLevel = "Beginner" | "Intermediate" | "Advanced";
 export type FocusArea = "Frontend" | "Backend" | "Full Stack" | "AI/ML" | "DevOps";
 
@@ -7,17 +11,35 @@ export interface ContributionPreference {
   focusArea: FocusArea;
 }
 
+export interface RepositoryFile {
+  path: string;
+  name?: string;
+  language?: string;
+  size?: number;
+  type?: "file" | "directory";
+  importance?: number;
+  category?: string;
+  dependencies?: string[];
+  metadata?: Record<string, unknown>;
+}
+
 export interface RepositoryAnalysisData {
   id?: string | number;
+  repositoryId?: string | number;
   name?: string;
   description?: string;
   url?: string;
   size?: number;
-  files?: Array<{ path: string; name?: string; language?: string }>;
-  languages?: Array<{ name: string; percentage: number }>;
+  files?: Array<RepositoryFile | string>;
+  languages?: Array<{ name?: string; percentage?: number }>;
   commits?: Array<{ hash?: string; message?: string; authorName?: string; committedAt?: string }>;
   contributors?: Array<{ name?: string; commits?: number }>;
   issues?: Array<{ id?: string | number; title?: string; labels?: Array<{ name: string }>; state?: string }>;
+  commitHash?: string;
+  analysisDate?: Date;
+  totalFiles?: number;
+  insights?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface ContributionDayPlan {
@@ -76,3 +98,4 @@ export interface ContributionPathPlan {
   aiAssistantHint: string;
   futureAIReady: boolean;
 }
+

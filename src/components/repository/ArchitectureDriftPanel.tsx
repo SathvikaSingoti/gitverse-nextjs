@@ -20,17 +20,10 @@ import {
   calculateArchitectureMetrics,
 } from "@/utils/architectureDriftDetector";
 import {
-  formatDriftScore,
-  formatCouplingScore,
-  compareShadshots,
-  generateDriftTrends,
-  detectDriftAnomalies,
   generateDriftSummary,
   requiresImmediateAction,
-  generateArchitectureInsights,
 } from "@/utils/architectureDriftHelpers";
 import { RepositoryAnalysisData } from "@/types/contributionPath";
-import { DRIFT_DETECTION_CONFIG } from "@/config/architectureDriftConfig";
 
 interface ArchitectureDriftPanelProps {
   repository?: RepositoryAnalysisData | null;
@@ -317,7 +310,7 @@ export function ArchitectureDriftPanel({
               )}
 
               {/* History Comparison */}
-              {previousSnapshot && (
+              {previousSnapshot && currentSnapshot && driftAnalysis && (
                 <div className="space-y-3">
                   <button
                     onClick={() => setShowHistory(!showHistory)}

@@ -10,10 +10,9 @@ import {
   BoundaryViolationType,
   ArchitectureLayer,
   DriftSeverity,
-  ArchitectureMetrics,
   DriftRecommendation,
-  RepositoryAnalysisData,
 } from "@/types/architectureDrift";
+import { RepositoryAnalysisData } from "@/types/contributionPath";
 
 const FORBIDDEN_DEPENDENCIES: Record<string, ArchitectureLayer[]> = {
   UI: ["Database", "Config"],
@@ -25,12 +24,6 @@ const FORBIDDEN_DEPENDENCIES: Record<string, ArchitectureLayer[]> = {
   Config: [],
   Other: [],
 };
-
-const CIRCULAR_DEPENDENCY_PATTERNS = [
-  ["UI", "Services", "UI"],
-  ["Services", "Database", "Services"],
-  ["Auth", "Services", "Auth"],
-];
 
 /**
  * Analyzes repository structure and generates architecture snapshot
@@ -52,9 +45,11 @@ export function generateArchitectureSnapshot(
   };
 
   if (repository?.files) {
-    // Analyze file structure to detect dependencies
-    const files = repository.files || [];
-    const filesByLayer = categorizeFilesByLayer(files);
+    // Normalize file paths for layer categorization
+    const filePaths = (repository.files || []).map((file) =>
+      typeof file === "string" ? file : file.path
+    );
+    const filesByLayer = categorizeFilesByLayer(filePaths);
 
     Object.entries(filesByLayer).forEach(([layer, layerFiles]) => {
       layerDistribution[layer as ArchitectureLayer] = layerFiles.length;
@@ -169,7 +164,6 @@ export function analyzeDrift(
   const recommendations = generateRecommendations(
     current,
     newViolations,
-    newDependencies,
     couplingScore,
     moduleGrowth
   );
@@ -260,7 +254,6 @@ function categorizeFilesByLayer(
  * Simulates import dependency detection
  */
 function hasImportDependency(sourceFile: string, targetFile: string): boolean {
-  const fileName = targetFile.split("/").pop()?.replace(/\.(ts|tsx|js)$/, "");
   return (
     Math.random() > 0.7 &&
     sourceFile !== targetFile &&
@@ -369,7 +362,6 @@ function detectViolationsTrend(
 function generateRecommendations(
   snapshot: ArchitectureSnapshot,
   newViolations: DependencyPath[],
-  newDependencies: DependencyPath[],
   couplingScore: number,
   moduleGrowth: number
 ): DriftRecommendation[] {
@@ -435,7 +427,7 @@ function generateRecommendations(
  */
 export function calculateArchitectureMetrics(
   snapshot: ArchitectureSnapshot
-): any {
+): Record<string, number> {
   return {
     totalDependencies: snapshot.totalDependencies,
     criticalViolations: Math.floor(snapshot.violationCount * 0.1),

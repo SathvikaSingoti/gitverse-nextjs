@@ -263,45 +263,13 @@ export function isHttpError(
     typeof error === "object" &&
     error !== null &&
     "status" in error &&
-    typeof (error as any).status === "number"
+    typeof (error as any).status === "number" &&
+    "message" in error &&
+    typeof (error as any).message === "string"
   );
 }
 
-export function sanitizeError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  try {
-    const str = String(error);
-
-    return str.length > 200
-      ? str.substring(0, 200) + "..."
-      : str;
-  } catch {
-    return "Unknown error";
-  }
-}
-
-export function badRequestResponse(message: string, status: number = 400): NextResponse {
-  return NextResponse.json({ error: message }, { status });
-}
-
-export function getPrismaErrorResponse(error: any): NextResponse | null {
-  const isColdStartError =
-    error?.code === 'P1001' ||
-    error?.code === 'P2024' ||
-    error?.message?.toLowerCase().includes('timeout') ||
-    error?.message?.toLowerCase().includes('connection pool') ||
-    error?.message?.toLowerCase().includes('connect') ||
-    error?.message?.toLowerCase().includes('fetch failed');
-
-  if (isColdStartError) {
-    return NextResponse.json(
-      { error: "DATABASE_COLD_START", message: "Waking up database..." },
-      { status: 503 }
-    );
-  }
-
-  return null;
-}
+// This tells Next.js WHICH pages/routes to protect
+export const config = {
+  matcher: ["/api/:path*", "/dashboard/:path*", "/profile/:path*"],
+};
