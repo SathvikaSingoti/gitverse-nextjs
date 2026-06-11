@@ -1,5 +1,6 @@
 /**
- * Shared repository analysis types used across multiple feature detectors
+ * Contribution Path Types
+ * Defines types for repository analysis and contribution data
  */
 
 export type ExperienceLevel = "Beginner" | "Intermediate" | "Advanced";
@@ -16,11 +17,44 @@ export interface RepositoryFile {
   name?: string;
   language?: string;
   size?: number;
-  type?: "file" | "directory";
+  lines?: number;
+  extension?: string;
+  type?: string;
   importance?: number;
   category?: string;
   dependencies?: string[];
   metadata?: Record<string, unknown>;
+}
+
+export interface ContributorInfo {
+  name: string;
+  email?: string;
+  commits: number;
+  additions?: number;
+  deletions?: number;
+  percentage?: number;
+  firstCommit?: Date;
+  lastCommit?: Date;
+}
+
+export interface CommitData {
+  hash: string;
+  shortHash?: string;
+  message: string;
+  author: string;
+  date: Date;
+  filesChanged: number;
+  additions?: number;
+  deletions?: number;
+  branch?: string;
+}
+
+export interface RepositoryInsight {
+  title: string;
+  description: string;
+  type: "positive" | "warning" | "info";
+  metric?: string;
+  value?: string | number;
 }
 
 export interface RepositoryAnalysisData {
@@ -30,10 +64,27 @@ export interface RepositoryAnalysisData {
   description?: string;
   url?: string;
   size?: number;
-  files?: Array<RepositoryFile | string>;
-  languages?: Array<{ name?: string; percentage?: number }>;
-  commits?: Array<{ hash?: string; message?: string; authorName?: string; committedAt?: string }>;
-  contributors?: Array<{ name?: string; commits?: number }>;
+  files: RepositoryFile[];
+  commits?: CommitData[];
+  contributors?: ContributorInfo[];
+  commitHash?: string;
+  analysisDate?: Date;
+  totalFiles?: number;
+  totalCommits?: number;
+  totalContributors?: number;
+  insights?: RepositoryInsight[];
+  languages?: Array<{
+    name: string;
+    percentage: number;
+    bytes?: number;
+    lines?: number;
+  }>;
+  statistics?: {
+    totalInsertions?: number;
+    totalDeletions?: number;
+    averageFilesPerCommit?: number;
+    averageContributorCommits?: number;
+  };
   issues?: Array<{ id?: string | number; title?: string; labels?: Array<{ name: string }>; state?: string }>;
   commitHash?: string;
   analysisDate?: Date;
