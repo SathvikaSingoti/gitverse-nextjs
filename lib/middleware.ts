@@ -315,6 +315,23 @@ export function sanitizeError(error: unknown): Record<string, any> {
   return { message: String(error) };
 }
 
+export function getPrismaErrorResponse(error: unknown): NextResponse | null {
+  if (!error || typeof error !== "object") return null;
+
+  const err = error as any;
+  const message = err?.message;
+  const code = err?.code;
+
+  if (code === "P1011" || (typeof message === "string" && message.toLowerCase().includes("cold start"))) {
+    return NextResponse.json(
+      { error: "Database is starting up. Please try again in a moment." },
+      { status: 503 },
+    );
+  }
+
+  return null;
+}
+
 // This tells Next.js WHICH pages/routes to protect
 export const config = {
   matcher: ["/api/:path*", "/dashboard/:path*", "/profile/:path*"],

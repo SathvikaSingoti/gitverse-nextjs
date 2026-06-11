@@ -175,14 +175,6 @@ export const generateArchitectureSnapshot = (
   };
 };
 
-const determineLayerFromType = (type: string): ArchitectureLayer => {
-  if (type === "API Route") return "API";
-  if (type === "Service") return "Services";
-  if (type === "Utility") return "Utils";
-  if (type === "Page" || type === "Component" || type === "Hook") return "UI";
-  return "Other";
-};
-
 const detectCircularDependencies = (
   dependentsMap: Map<string, string[]>,
   importMap: Map<string, string[]>,
