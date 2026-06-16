@@ -21,7 +21,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "test": "jest",
+    "test": "jest --forceExit",
     "test:validation": "tsx scripts/test-validation.ts"
   },
   "dependencies": {
