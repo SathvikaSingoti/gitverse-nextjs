@@ -6,6 +6,7 @@ import RepositoryLearningPath from "./RepositoryLearningPath";
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import RepositoryEvolutionTimeline from "./RepositoryEvolutionTimeline";
 import ContributorIssueRecommendations from "./ContributorIssueRecommendations";
+import DependencyVulnerabilityScanner from "./DependencyVulnerabilityScanner";
 import CodeComplexityAnalyzer from "./CodeComplexityAnalyzer";
 import { useState } from 'react'
 import { toast } from '@/hooks/use-toast'
@@ -269,6 +270,9 @@ export function RepositoryInsights({
 
       {/* AI Code Complexity Analyzer */}
       <CodeComplexityAnalyzer />
+
+      {/* Dependency Vulnerability Scanner */}
+      <DependencyVulnerabilityScanner />
 
     </div>
   )
