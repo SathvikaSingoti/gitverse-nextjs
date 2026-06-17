@@ -6,6 +6,7 @@ import RepositoryLearningPath from "./RepositoryLearningPath";
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import RepositoryEvolutionTimeline from "./RepositoryEvolutionTimeline";
 import ContributorIssueRecommendations from "./ContributorIssueRecommendations";
+import CodeComplexityAnalyzer from "./CodeComplexityAnalyzer";
 import { useState } from 'react'
 import { toast } from '@/hooks/use-toast'
 import axios from 'axios'
@@ -265,6 +266,9 @@ export function RepositoryInsights({
 
       {/* Contributor Skill-Based Issue Recommendations */}
       <ContributorIssueRecommendations />
+
+      {/* AI Code Complexity Analyzer */}
+      <CodeComplexityAnalyzer />
 
     </div>
   )
